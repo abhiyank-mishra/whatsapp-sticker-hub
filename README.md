@@ -6,10 +6,24 @@
 
 ---
 
-## 🌟 Major Updates (v1.1 Update)
+## ⚡ 1-Click Installation (For Friends / Non-Tech Users)
+
+Koi coding ya complicated setup ki zaroorat nahi hai:
+
+1. Bas is repository se **`install.bat`** download karein (ya apne friend ko bhej dein).
+2. **`install.bat`** par double click karein.
+3. Script automatically GitHub se saari required files download karega aur aapko WhatsApp Web open karke de dega!
+
+> **Note:** Agar Chrome pehle se open hai, to screen par aane wale prompt me:
+> - **Option 1 (Press 1 or Enter):** Chrome restart hokar direct WhatsApp Web Sticker Hub ke sath khol dega.
+> - **Option 2 (Permanent Setup):** Chrome me permanently install karne ke liye folder path already copy ho jata hai, bas `chrome://extensions` me Developer Mode on karke `Load unpacked` par `Ctrl + V` karke Select Folder karna hai!
+
+---
+
+## 🌟 Major Features
 
 1. **🎭 Real Photo TMKOC Memes Pack:**
-   - Placeholder SVG emojis ko hata kar ab extension me real **"Chatpate TMKOC Memes 😂 [AKB5VR]"** pre-bundled hai!
+   - Pre-bundled real **"Chatpate TMKOC Memes 😂 [AKB5VR]"**!
    - Jethalal (*"Akal hai tere mein.. akal hai?"*, *"Jesi jiski soch"*, *"Kem palty!"*, *"Chlega"*, *"Dukh. Dard. Peeda."*), Daya (*"Chup kar ne vaidi"*), Bhide (*"Tensionram Tukaram Bhide"*), Champaklal (*"Nahane ja nahane"*), Popatlal (*"Cancel Cancel Cancel"*), etc.
 
 2. **📥 Sticker.ly Pack Importer (1-Click):**
@@ -20,10 +34,10 @@
    - Ek saath 10, 20, 50 images select ya drag-drop karein aur ek click me naya Pack create karein.
 
 4. **⚡ Seamless WhatsApp Web Connection:**
-   - WhatsApp Web khula hone par bina tab refresh kiye script auto-connect ho jaati hai ("WA Loading..." problem permanently resolved).
+   - WhatsApp Web khula hone par bina tab refresh kiye script auto-connect ho jaati hai.
 
-5. **🔍 On-Screen Pack Grabber:**
-   - WhatsApp Web me jab bhi aap kisi sticker pack ki info dialog dekhenge, screen par *"Add Entire Pack to Sticker Hub"* ka button aa jayega!
+5. **🔍 In-Drawer Smart Sticker Hub:**
+   - Drawer ke andar smart recommendations aur quick search bina chat screen ko disturb kiye!
 
 ---
 
@@ -32,8 +46,7 @@
 Agar aapne extension pehle se load kiya hua hai:
 1. Chrome me `chrome://extensions` par jayein.
 2. **WhatsApp Sticker Hub** card par **"Reload" (🔄)** icon par click karein.
-3. WhatsApp Web tab par switch karein aur extension icon par click karein.
-4. Saare real TMKOC stickers aur naya **"📥 Import Pack"** tab turant active ho jayega!
+3. WhatsApp Web tab par switch karein aur extension use karein!
 
 ---
 
