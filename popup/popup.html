@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WhatsApp Sticker Hub</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="app-container">
+    <!-- Top Header -->
+    <header class="app-header">
+      <div class="brand">
+        <div class="brand-icon-wrap">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#00A884" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <polygon points="12 2 2 7 12 12 22 7 12 2"/>
+            <polyline points="2 17 12 22 22 17"/>
+            <polyline points="2 12 12 17 22 12"/>
+          </svg>
+        </div>
+        <div class="brand-text">
+          <h1>Sticker Hub</h1>
+          <div class="connection-status" id="wa-status" title="WhatsApp Web Status">
+            <span class="status-dot checking"></span>
+            <span class="status-label">Checking WA...</span>
+          </div>
+        </div>
+      </div>
+      <div class="header-actions">
+        <button class="icon-btn" id="btn-export-import" title="Backup & Restore">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+          </svg>
+        </button>
+        <button class="icon-btn" id="btn-open-settings" title="Settings">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+          </svg>
+        </button>
+      </div>
+    </header>
+
+    <!-- Navigation Tabs -->
+    <nav class="nav-tabs">
+      <button class="nav-tab active highlight-tab" data-tab="store">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/>
+        </svg>
+        <span>Store</span>
+      </button>
+      <button class="nav-tab" data-tab="gallery">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+        </svg>
+        <span>My Stickers</span>
+      </button>
+      <button class="nav-tab" data-tab="packs">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+        </svg>
+        <span>Packs</span>
+      </button>
+      <button class="nav-tab" data-tab="import-pack">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/>
+        </svg>
+        <span>Import</span>
+      </button>
+      <button class="nav-tab" data-tab="create">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="14" x2="19" y2="14"/>
+        </svg>
+        <span>Create</span>
+      </button>
+    </nav>
+
+    <!-- Main Content Area -->
+    <main class="main-content">
+      <!-- ═══ TAB 1: DEDICATED STORE ═══ -->
+      <section id="tab-store" class="tab-pane active">
+        <!-- 1. Store Catalog View -->
+        <div id="store-catalog-view" class="store-view-panel">
+          <div class="store-search-bar">
+            <div class="search-input-wrap">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+              </svg>
+              <input type="text" id="store-search-input" placeholder="Search 40+ trending packs, TMKOC, love, funny, savage..." autocomplete="off">
+              <button id="store-search-clear" class="search-clear-btn" style="display:none;">✕</button>
+            </div>
+          </div>
+
+          <!-- Store Category & Unique Topic Filter Pills -->
+          <div class="store-filter-chips" id="store-filter-chips">
+            <button class="chip-pill active" data-cat="all">All (40+)</button>
+            <button class="chip-pill" data-cat="trending">Trending</button>
+            <button class="chip-pill" data-cat="tmkoc">TMKOC</button>
+            <button class="chip-pill" data-cat="hera pheri">Hera Pheri</button>
+            <button class="chip-pill" data-cat="panchayat">Panchayat</button>
+            <button class="chip-pill" data-cat="mirzapur">Mirzapur</button>
+            <button class="chip-pill" data-cat="carry">CarryMinati</button>
+            <button class="chip-pill" data-cat="cricket">Cricket</button>
+            <button class="chip-pill" data-cat="desi memes">Desi Memes</button>
+            <button class="chip-pill" data-cat="savage">Savage Replies</button>
+            <button class="chip-pill" data-cat="love">Love & Romance</button>
+            <button class="chip-pill" data-cat="shinchan">Shinchan</button>
+            <button class="chip-pill" data-cat="dudu">Bubu & Dudu</button>
+            <button class="chip-pill" data-cat="cute">Cute Animals</button>
+          </div>
+
+          <!-- Store Packs List -->
+          <div class="store-packs-scroll" id="store-packs-list">
+            <!-- Rendered dynamically -->
+          </div>
+        </div>
+
+        <!-- 2. Store Pack Details / All Stickers Preview View -->
+        <div id="store-detail-view" class="store-view-panel" style="display: none;">
+          <div class="store-detail-header">
+            <button class="store-back-btn" id="btn-store-detail-back" title="Back to Store">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/>
+              </svg>
+              <span>Back</span>
+            </button>
+            <button class="btn-get-pack" id="btn-detail-get-pack">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+              </svg>
+              <span>Get Pack</span>
+            </button>
+          </div>
+          <div class="store-detail-meta" id="store-detail-meta">
+            <!-- Pack title, tag and description rendered dynamically -->
+          </div>
+          <div class="store-detail-grid-wrap">
+            <div class="store-detail-grid" id="store-detail-stickers-grid">
+              <!-- All stickers rendered dynamically -->
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ═══ TAB 2: MY STICKERS (GALLERY) ═══ -->
+      <section id="tab-gallery" class="tab-pane">
+        <div class="filter-bar">
+          <div class="search-input-wrap">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+            </svg>
+            <input type="text" id="gallery-search" placeholder="Search my stickers, tags..." autocomplete="off">
+          </div>
+          <select id="gallery-pack-filter" class="select-pack-filter">
+            <option value="all">All Packs</option>
+            <option value="favorites">Favorites Only</option>
+          </select>
+        </div>
+
+        <div class="stickers-scroll-area">
+          <div class="stickers-grid" id="gallery-grid">
+            <!-- Sticker cards rendered dynamically -->
+          </div>
+          <div class="empty-state" id="gallery-empty" style="display: none;">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+            </svg>
+            <h3>No Stickers Found</h3>
+            <p>Visit the Store tab to download viral packs or upload your own!</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ═══ TAB 3: PACKS MANAGER ═══ -->
+      <section id="tab-packs" class="tab-pane">
+        <div class="packs-toolbar">
+          <button class="btn-primary" id="btn-create-pack-modal">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="14" x2="19" y2="14"/>
+            </svg>
+            Create Empty Pack
+          </button>
+          <button class="btn-secondary" id="btn-quick-store-trigger">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/>
+            </svg>
+            Explore Store
+          </button>
+        </div>
+        <div class="packs-list" id="packs-list-container">
+          <!-- Packs list rendered dynamically -->
+        </div>
+      </section>
+
+      <!-- ═══ TAB 4: IMPORT BY CODE OR BULK ═══ -->
+      <section id="tab-import-pack" class="tab-pane">
+        <div class="import-scroll-area">
+          <!-- Sticker.ly Code Importer -->
+          <div class="import-box-card">
+            <div class="import-box-header">
+              <div class="import-icon-circle">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#00A884" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+                </svg>
+              </div>
+              <div>
+                <h4>Import via Sticker.ly Code</h4>
+                <p>Paste any Sticker.ly code (e.g. <code>L0VDX7</code>) or pack link</p>
+              </div>
+            </div>
+            <div class="form-group">
+              <input type="text" id="input-stickerly-code" placeholder="e.g. L0VDX7 or AKB5VR" class="text-input" value="L0VDX7">
+            </div>
+            <button class="btn-primary full-width" id="btn-import-stickerly">
+              Import Entire Pack
+            </button>
+            <div class="import-progress" id="stickerly-progress" style="display: none;">
+              <div class="progress-bar-wrap">
+                <div class="progress-bar-fill" id="stickerly-progress-fill"></div>
+              </div>
+              <span class="progress-text" id="stickerly-progress-text">Downloading stickers...</span>
+            </div>
+          </div>
+
+          <!-- Bulk Image Files Upload -->
+          <div class="import-box-card" style="margin-top: 12px;">
+            <div class="import-box-header">
+              <div class="import-icon-circle">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0284C7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+                </svg>
+              </div>
+              <div>
+                <h4>Bulk Upload Images</h4>
+                <p>Select multiple images to create a custom pack at once</p>
+              </div>
+            </div>
+            <div class="form-group">
+              <label for="bulk-pack-name">Pack Name *</label>
+              <input type="text" id="bulk-pack-name" placeholder="e.g. My Favorite Memes" class="text-input">
+            </div>
+            <div class="bulk-dropzone" id="bulk-dropzone">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#64748B" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="3" width="18" height="18" rx="4"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/>
+              </svg>
+              <span style="font-weight: 600; font-size: 13px;">Choose Multiple Images</span>
+              <span style="font-size: 11px; color: var(--text-muted);">or drag & drop files here</span>
+              <input type="file" id="bulk-file-input" multiple accept="image/png,image/webp,image/jpeg,image/gif" style="display:none;">
+            </div>
+            <div id="bulk-selected-info" style="font-size: 12px; margin-top: 8px; font-weight: 600; color: #00A884; display: none;"></div>
+            <button class="btn-primary full-width" id="btn-save-bulk" disabled style="margin-top: 10px;">
+              Create Pack from Selected Images
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ═══ TAB 5: 1-BY-1 SINGLE STICKER UPLOAD ═══ -->
+      <section id="tab-create" class="tab-pane">
+        <div class="create-form">
+          <div class="drop-area" id="file-drop-area">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#64748B" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="3" width="18" height="18" rx="4"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/>
+            </svg>
+            <div class="drop-title">Drop 1 image here</div>
+            <div class="drop-subtitle">or click to browse</div>
+            <input type="file" id="image-file-input" accept="image/png,image/webp,image/jpeg,image/gif" style="display:none;">
+          </div>
+
+          <div class="preview-card" id="create-preview-wrap" style="display: none;">
+            <div class="preview-header">
+              <span>512x512 Transparent WebP Preview</span>
+            </div>
+            <div class="preview-canvas-box">
+              <img id="create-preview-img" alt="Preview">
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="sticker-name-input">Sticker Name *</label>
+            <input type="text" id="sticker-name-input" placeholder="e.g. Jethalal Shocked" class="text-input">
+          </div>
+
+          <div class="form-group">
+            <label for="sticker-pack-select">Assign to Pack *</label>
+            <select id="sticker-pack-select" class="text-input">
+              <!-- Dynamically populated -->
+            </select>
+          </div>
+
+          <button class="btn-primary full-width" id="btn-save-sticker" disabled>Save Sticker</button>
+        </div>
+      </section>
+    </main>
+
+    <!-- Modals -->
+    <!-- Create Pack Modal -->
+    <div class="modal-overlay" id="modal-create-pack" style="display: none;">
+      <div class="modal-card">
+        <div class="modal-header">
+          <h3>Create New Pack</h3>
+          <button class="modal-close-btn" data-close="modal-create-pack">✕</button>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label for="new-pack-name">Pack Name *</label>
+            <input type="text" id="new-pack-name" placeholder="e.g. My Custom Memes" class="text-input">
+          </div>
+          <div class="form-group" style="display:none;">
+            <input type="hidden" id="new-pack-icon" value="folder">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn-secondary" data-close="modal-create-pack">Cancel</button>
+          <button class="btn-primary" id="btn-confirm-create-pack">Create Pack</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Backup & Restore Modal -->
+    <div class="modal-overlay" id="modal-backup" style="display: none;">
+      <div class="modal-card">
+        <div class="modal-header">
+          <h3>Backup & Restore</h3>
+          <button class="modal-close-btn" data-close="modal-backup">✕</button>
+        </div>
+        <div class="modal-body">
+          <div class="backup-section">
+            <h4>Export Collection</h4>
+            <p>Save all your custom sticker packs, tags, and favorites to a single JSON file.</p>
+            <button class="btn-primary full-width" id="btn-download-backup">Export Backup (JSON)</button>
+          </div>
+          <hr class="modal-divider">
+          <div class="backup-section">
+            <h4>Import Collection</h4>
+            <p>Restore from a previous backup or import packs shared by friends.</p>
+            <input type="file" id="backup-file-input" accept=".json,application/json" style="display:none;">
+            <button class="btn-secondary full-width" id="btn-trigger-import">Import from JSON File</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Settings Modal -->
+    <div class="modal-overlay" id="modal-settings" style="display: none;">
+      <div class="modal-card">
+        <div class="modal-header">
+          <h3>Settings</h3>
+          <button class="modal-close-btn" data-close="modal-settings">✕</button>
+        </div>
+        <div class="modal-body">
+          <label class="setting-item">
+            <div class="setting-info">
+              <span class="setting-title">Smart Reply Recommendations</span>
+              <span class="setting-desc">Auto-suggest matching desi meme stickers based on incoming chat messages</span>
+            </div>
+            <input type="checkbox" id="setting-smart-reply" class="switch-checkbox">
+          </label>
+          <label class="setting-item">
+            <div class="setting-info">
+              <span class="setting-title">Instant Auto-Send</span>
+              <span class="setting-desc">Automatically clicks Send when sticker is selected in chat</span>
+            </div>
+            <input type="checkbox" id="setting-autosend" class="switch-checkbox">
+          </label>
+          <label class="setting-item">
+            <div class="setting-info">
+              <span class="setting-title">Close Hub After Send</span>
+              <span class="setting-desc">Auto-close in-page sticker drawer once a sticker is sent</span>
+            </div>
+            <input type="checkbox" id="setting-close-after-send" class="switch-checkbox">
+          </label>
+          <div class="setting-info-box">
+            <span><strong>Tip:</strong> Press <code>Alt + S</code> anywhere on WhatsApp Web to toggle your sticker drawer!</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Popup Toast -->
+    <div id="popup-toast" class="popup-toast"></div>
+  </div>
+
+  <script src="../shared/default-stickers.js"></script>
+  <script src="../shared/storage.js"></script>
+  <script src="../shared/smart-reply.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>
