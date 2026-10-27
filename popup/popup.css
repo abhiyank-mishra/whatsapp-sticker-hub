@@ -637,12 +637,13 @@ body {
   gap: 10px;
 }
 
-.sticker-card {
+.sticker-card,
+.sticker-item {
   position: relative;
   aspect-ratio: 1;
   background: var(--bg-card);
   border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-md);
   padding: 6px;
   display: flex;
   align-items: center;
@@ -653,21 +654,26 @@ body {
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
 }
 
-.sticker-card:hover {
+.sticker-card:hover,
+.sticker-item:hover {
   transform: translateY(-2px);
   border-color: var(--primary);
   box-shadow: 0 6px 16px rgba(0, 168, 132, 0.16);
 }
 
-.sticker-card img {
+.sticker-card img,
+.sticker-item img {
   width: 100%;
   height: 100%;
+  max-width: 100%;
+  max-height: 100%;
   object-fit: contain;
   pointer-events: none;
   filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.06));
 }
 
-.card-hover-overlay {
+.card-hover-overlay,
+.sticker-overlay {
   position: absolute;
   inset: 0;
   background: linear-gradient(180deg, rgba(15, 23, 42, 0.4) 0%, rgba(15, 23, 42, 0.75) 100%);
@@ -679,15 +685,19 @@ body {
   opacity: 0;
   transition: opacity 0.16s ease;
   backdrop-filter: blur(2px);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-md);
   padding: 6px;
 }
 
-.sticker-card:hover .card-hover-overlay {
+.sticker-card:hover .card-hover-overlay,
+.sticker-card:hover .sticker-overlay,
+.sticker-item:hover .card-hover-overlay,
+.sticker-item:hover .sticker-overlay {
   opacity: 1;
 }
 
-.btn-card-send {
+.btn-card-send,
+.overlay-btn-send {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -695,7 +705,7 @@ body {
   background: var(--primary);
   color: #FFFFFF;
   border: none;
-  padding: 5px 10px;
+  padding: 5px 12px;
   border-radius: 20px;
   font-size: 11px;
   font-weight: 700;
@@ -704,12 +714,14 @@ body {
   transition: all 0.14s ease;
 }
 
-.btn-card-send:hover {
+.btn-card-send:hover,
+.overlay-btn-send:hover {
   background: var(--primary-hover);
   transform: scale(1.05);
 }
 
-.card-action-icons {
+.card-action-icons,
+.overlay-actions-row {
   position: absolute;
   top: 4px;
   right: 4px;
@@ -718,11 +730,12 @@ body {
   gap: 3px;
 }
 
-.card-icon-btn {
+.card-icon-btn,
+.overlay-icon-btn {
   width: 22px;
   height: 22px;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.9);
+  background: rgba(255, 255, 255, 0.95);
   border: 1px solid rgba(0, 0, 0, 0.08);
   color: var(--text-muted);
   display: flex;
@@ -733,18 +746,21 @@ body {
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.12);
 }
 
-.card-icon-btn:hover {
+.card-icon-btn:hover,
+.overlay-icon-btn:hover {
   transform: scale(1.12);
   color: var(--text-main);
 }
 
-.card-icon-btn.btn-fav.is-fav {
+.card-icon-btn.btn-fav.is-fav,
+.overlay-icon-btn.is-fav {
   color: #F59E0B;
   background: #FFFBEB;
   border-color: #FCD34D;
 }
 
-.card-icon-btn.btn-del:hover {
+.card-icon-btn.btn-del:hover,
+.overlay-icon-btn.btn-del:hover {
   color: #EF4444;
   background: #FEF2F2;
   border-color: #FECACA;

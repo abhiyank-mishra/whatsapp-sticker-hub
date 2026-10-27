@@ -715,10 +715,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     }).join('');
 
     // Attach Action Listeners
-    galleryGrid.querySelectorAll('.btn-card-send').forEach(btn => {
-      btn.addEventListener('click', async (e) => {
-        e.stopPropagation();
-        const id = btn.getAttribute('data-id');
+    galleryGrid.querySelectorAll('.sticker-card, .sticker-item').forEach(card => {
+      card.addEventListener('click', async (e) => {
+        if (e.target.closest('[data-fav]') || e.target.closest('[data-del]')) return;
+        const id = card.getAttribute('data-id');
         const sticker = findSticker(id);
         if (sticker) await sendStickerToWhatsAppTab(sticker);
       });
