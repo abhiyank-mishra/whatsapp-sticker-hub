@@ -131,6 +131,18 @@ document.addEventListener('DOMContentLoaded', async () => {
     setupSettings();
     setupBackupRestore();
 
+    document.getElementById('btn-clean-duplicates')?.addEventListener('click', async () => {
+      showToast('Scanning & cleaning duplicates...', 'info', 1600);
+      const { cleanPacks, modified } = StickerStorage.deduplicatePacksList(packs);
+      if (modified) {
+        await StickerStorage.savePacks(cleanPacks);
+        showToast('Duplicate stickers cleaned successfully!', 'success', 2500);
+        await reloadData();
+      } else {
+        showToast('All stickers are already unique & clean!', 'success', 2000);
+      }
+    });
+
     // Listen for storage changes across tabs
     chrome.storage.onChanged.addListener(async (changes) => {
       if (changes.wsh_packs || changes.wsh_favorites || changes.wsh_settings) {
@@ -634,14 +646,28 @@ document.addEventListener('DOMContentLoaded', async () => {
     const favSet = new Set(favorites);
 
     if (filter === 'all') {
-      packs.forEach(p => p.stickers.forEach(s => list.push({ ...s, packName: p.name })));
+      list = StickerStorage.getAllStickersDeduplicated(packs);
     } else if (filter === 'favorites') {
-      packs.forEach(p => p.stickers.forEach(s => {
-        if (favSet.has(s.id)) list.push({ ...s, packName: p.name });
+      const seenFp = new Set();
+      packs.forEach(p => (p.stickers || []).forEach(s => {
+        if (favSet.has(s.id)) {
+          const fp = StickerStorage.getStickerFingerprint(s);
+          if (fp && seenFp.has(fp)) return;
+          if (fp) seenFp.add(fp);
+          list.push({ ...s, packName: p.name });
+        }
       }));
     } else {
       const p = packs.find(pack => pack.id === filter);
-      if (p) list = p.stickers.map(s => ({ ...s, packName: p.name }));
+      if (p) {
+        const seenFp = new Set();
+        (p.stickers || []).forEach(s => {
+          const fp = StickerStorage.getStickerFingerprint(s);
+          if (fp && seenFp.has(fp)) return;
+          if (fp) seenFp.add(fp);
+          list.push({ ...s, packName: p.name });
+        });
+      }
     }
 
     if (search) {
@@ -662,18 +688,24 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     galleryGrid.innerHTML = list.map(sticker => {
       const isFav = favSet.has(sticker.id);
+      const isAnim = sticker.isAnimated || (sticker.tags && sticker.tags.includes('animated'));
       return `
-        <div class="sticker-item" data-id="${sticker.id}" title="${sticker.name}">
+        <div class="sticker-card" data-id="${sticker.id}" title="${sticker.name}">
           <img src="${sticker.dataUrl}" alt="${sticker.name}" loading="lazy">
-          <div class="sticker-overlay">
-            <button class="overlay-btn-send" data-id="${sticker.id}" title="Send directly to WhatsApp chat">
+          ${isAnim ? `
+            <span class="anim-tag" title="Animated Sticker">
+              ${getSvg('sparkles', 8)} GIF
+            </span>
+          ` : ''}
+          <div class="card-hover-overlay">
+            <button class="btn-card-send" data-id="${sticker.id}" title="Send directly to WhatsApp chat">
               ${getSvg('send', 11)} Send
             </button>
-            <div class="overlay-actions-row">
-              <button class="overlay-icon-btn ${isFav ? 'is-fav' : ''}" data-fav="${sticker.id}" title="${isFav ? 'Remove Favorite' : 'Add Favorite'}">
+            <div class="card-action-icons">
+              <button class="card-icon-btn btn-fav ${isFav ? 'is-fav' : ''}" data-fav="${sticker.id}" title="${isFav ? 'Remove Favorite' : 'Add Favorite'}">
                 ${getSvg(isFav ? 'star-filled' : 'star', 12)}
               </button>
-              <button class="overlay-icon-btn btn-del" data-del="${sticker.id}" title="Delete Sticker">
+              <button class="card-icon-btn btn-del" data-del="${sticker.id}" title="Delete Sticker">
                 ${getSvg('trash', 12)}
               </button>
             </div>
@@ -683,7 +715,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }).join('');
 
     // Attach Action Listeners
-    galleryGrid.querySelectorAll('.overlay-btn-send').forEach(btn => {
+    galleryGrid.querySelectorAll('.btn-card-send').forEach(btn => {
       btn.addEventListener('click', async (e) => {
         e.stopPropagation();
         const id = btn.getAttribute('data-id');
@@ -710,7 +742,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const id = btn.getAttribute('data-del');
         if (confirm('Delete this sticker?')) {
           await StickerStorage.deleteSticker(id);
-          showToast('Sticker deleted');
+          showToast('Sticker deleted', 'info', 1600);
           await reloadData();
         }
       });

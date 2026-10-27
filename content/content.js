@@ -298,6 +298,9 @@
           <button class="wsh-btn-create-pack" id="wsh-btn-create-pack">
             ${getSvg('folder-plus', 14)} Create Pack
           </button>
+          <button class="wsh-btn-delete-selected" id="wsh-btn-delete-selected" title="Delete selected stickers">
+            ${getSvg('trash', 14)} Delete
+          </button>
           <button class="wsh-btn-cancel-sel" id="wsh-btn-cancel-sel">
             Cancel
           </button>
@@ -335,6 +338,20 @@
 
     document.getElementById('wsh-select-toggle-btn').addEventListener('click', toggleSelectionMode);
     document.getElementById('wsh-btn-create-pack').addEventListener('click', openCreatePackModal);
+    document.getElementById('wsh-btn-delete-selected')?.addEventListener('click', async () => {
+      if (selectedStickerIds.size === 0) return;
+      const count = selectedStickerIds.size;
+      if (confirm(`Delete ${count} selected sticker${count > 1 ? 's' : ''}?`)) {
+        await StickerStorage.deleteMultipleStickers(Array.from(selectedStickerIds));
+        selectedStickerIds.clear();
+        isSelectionMode = false;
+        updateSelectionUI();
+        await loadData();
+        renderTabs();
+        renderStickers();
+        showToast(`${count} sticker${count > 1 ? 's' : ''} deleted!`, 'info', 2200);
+      }
+    });
     document.getElementById('wsh-btn-cancel-sel').addEventListener('click', () => {
       isSelectionMode = false;
       selectedStickerIds.clear();
@@ -648,19 +665,32 @@
         if (stickerMap.has(recId)) stickerList.push(stickerMap.get(recId));
       }
     } else if (currentActiveTab === 'all') {
-      for (const pack of allPacks) {
-        for (const s of pack.stickers) stickerList.push(s);
-      }
+      stickerList = StickerStorage.getAllStickersDeduplicated(allPacks);
     } else if (currentActiveTab === 'favorites') {
       const favSet = new Set(favorites);
+      const seenFp = new Set();
       for (const pack of allPacks) {
         for (const s of pack.stickers) {
-          if (favSet.has(s.id)) stickerList.push(s);
+          if (favSet.has(s.id)) {
+            const fp = StickerStorage.getStickerFingerprint(s);
+            if (fp && seenFp.has(fp)) continue;
+            if (fp) seenFp.add(fp);
+            stickerList.push(s);
+          }
         }
       }
     } else {
       const pack = allPacks.find(p => p.id === currentActiveTab);
-      if (pack) stickerList = [...pack.stickers];
+      if (pack) {
+        const seenFp = new Set();
+        stickerList = [];
+        for (const s of (pack.stickers || [])) {
+          const fp = StickerStorage.getStickerFingerprint(s);
+          if (fp && seenFp.has(fp)) continue;
+          if (fp) seenFp.add(fp);
+          stickerList.push(s);
+        }
+      }
     }
 
     // Apply Search Filter
@@ -686,6 +716,24 @@
           </button>
         </div>
       `;
+    } else {
+      const activePackObj = allPacks.find(p => p.id === currentActiveTab);
+      if (activePackObj) {
+        contentHtml += `
+          <div class="wsh-pack-info-bar">
+            <div class="wsh-pack-info-left">
+              ${getSvg(activePackObj.icon === 'film' ? 'layers' : 'folder', 14)}
+              <span>${activePackObj.name.replace(/[^\w\s-]/g, '').trim() || 'Sticker Pack'}</span>
+              <span class="wsh-pack-badge">${activePackObj.stickers ? activePackObj.stickers.length : 0} stickers</span>
+            </div>
+            <div class="wsh-pack-info-actions">
+              <button class="wsh-pack-btn wsh-pack-btn-danger" id="wsh-btn-delete-pack" data-id="${activePackObj.id}" title="Delete this entire pack">
+                ${getSvg('trash', 12)} Delete Pack
+              </button>
+            </div>
+          </div>
+        `;
+      }
     }
 
     // Empty state handling
@@ -783,12 +831,15 @@
           <!-- Normal Mode Card Actions -->
           <div class="wsh-card-actions">
             ${isRecentsTab ? `
-              <button class="wsh-recent-remove-btn" data-action="remove-recent" data-id="${sticker.id}" title="Remove from recents">
+              <button class="wsh-card-mini-btn wsh-recent-remove-btn" data-action="remove-recent" data-id="${sticker.id}" title="Remove from recents">
                 ${getSvg('x', 11)}
               </button>
             ` : `
               <button class="wsh-card-mini-btn wsh-fav-btn ${isFav ? 'wsh-is-fav' : ''}" data-action="fav" data-id="${sticker.id}" title="${isFav ? 'Remove Favorite' : 'Add to Favorites'}">
                 ${getSvg(isFav ? 'star-filled' : 'star', 11)}
+              </button>
+              <button class="wsh-card-mini-btn wsh-del-btn" data-action="delete-sticker" data-id="${sticker.id}" title="Delete sticker">
+                ${getSvg('trash', 11)}
               </button>
             `}
           </div>
@@ -826,6 +877,23 @@
         setTimeout(() => syncBtn.classList.remove('wsh-syncing'), 1800);
       });
     }
+
+    const deletePackBtn = container.querySelector('#wsh-btn-delete-pack');
+    if (deletePackBtn) {
+      deletePackBtn.addEventListener('click', async () => {
+        const packId = deletePackBtn.getAttribute('data-id');
+        const pack = allPacks.find(p => p.id === packId);
+        if (!pack) return;
+        if (confirm(`Delete pack "${pack.name}" and all its ${pack.stickers.length} stickers?`)) {
+          await StickerStorage.deletePack(packId);
+          allPacks = await StickerStorage.getPacks();
+          currentActiveTab = 'all';
+          renderTabs();
+          renderStickers();
+          showToast(`Pack "${pack.name}" deleted!`, 'success', 2500);
+        }
+      });
+    }
   }
 
   function bindStickerCardEvents(container) {
@@ -859,6 +927,24 @@
           favorites = await StickerStorage.getFavorites();
           renderTabs();
           renderStickers();
+          return;
+        }
+
+        // Action 2b: Delete Sticker
+        const delBtn = e.target.closest('[data-action="delete-sticker"]');
+        if (delBtn) {
+          e.stopPropagation();
+          card.style.opacity = '0';
+          card.style.transform = 'scale(0.8)';
+          await StickerStorage.deleteSticker(id);
+          allPacks = await StickerStorage.getPacks();
+          favorites = await StickerStorage.getFavorites();
+          recents = await StickerStorage.getRecents();
+          setTimeout(() => {
+            renderTabs();
+            renderStickers();
+          }, 180);
+          showToast('Sticker deleted', 'info', 1600);
           return;
         }
 

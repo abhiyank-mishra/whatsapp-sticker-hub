@@ -517,6 +517,28 @@ body[data-theme='dark'] #wsh-edge-tab,
   color: var(--wsh-primary);
 }
 
+.wsh-pack-badge {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 10px;
+  background: var(--wsh-surface-hover);
+  color: var(--wsh-text-muted);
+  border: 1px solid var(--wsh-border);
+}
+
+.wsh-pack-btn.wsh-pack-btn-danger {
+  color: #EF4444;
+  border-color: rgba(239, 68, 68, 0.3);
+  background: rgba(239, 68, 68, 0.05);
+}
+
+.wsh-pack-btn.wsh-pack-btn-danger:hover {
+  background: #EF4444;
+  color: #FFFFFF;
+  border-color: #EF4444;
+}
+
 .wsh-pack-btn.wsh-syncing svg {
   animation: wshSpin 0.8s linear infinite;
 }
@@ -622,6 +644,12 @@ body[data-theme='dark'] #wsh-edge-tab,
   color: #F59E0B;
   background: #FFFBEB;
   border-color: #FCD34D;
+}
+
+.wsh-card-mini-btn.wsh-del-btn:hover {
+  color: #EF4444;
+  background: #FEF2F2;
+  border-color: #FECACA;
 }
 
 /* Recents Remove Button */
@@ -746,6 +774,26 @@ body[data-theme='dark'] #wsh-edge-tab,
 
 .wsh-btn-create-pack:hover {
   background: var(--wsh-primary-hover);
+}
+
+.wsh-btn-delete-selected {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: rgba(239, 68, 68, 0.12);
+  color: #EF4444;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  padding: 6px 12px;
+  border-radius: var(--wsh-radius-sm);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.14s ease;
+}
+
+.wsh-btn-delete-selected:hover {
+  background: #EF4444;
+  color: #FFFFFF;
 }
 
 .wsh-btn-cancel-sel {

@@ -98,8 +98,115 @@ const WSH_ImageCache = {
 
 const StickerStorage = {
   ImageCache: WSH_ImageCache,
+
   /**
-   * Get all sticker packs. Automatically initializes or migrates to real photo packs (TMKOC).
+   * Helper to compute a robust fingerprint for a sticker image to eliminate duplicates
+   */
+  getStickerFingerprint(sticker) {
+    if (!sticker) return '';
+    if (sticker.id && !sticker.id.startsWith('stk_') && !sticker.id.startsWith('wa_stk_') && !sticker.id.startsWith('incoming_')) {
+      return sticker.id;
+    }
+    if (typeof sticker.dataUrl === 'string') {
+      if (sticker.dataUrl.startsWith('data:')) {
+        const len = sticker.dataUrl.length;
+        const tail = sticker.dataUrl.slice(-80);
+        const mid = sticker.dataUrl.slice(Math.floor(len / 2), Math.floor(len / 2) + 30);
+        return `b64_${len}_${mid}_${tail}`;
+      }
+      return sticker.dataUrl.trim();
+    }
+    return sticker.id || '';
+  },
+
+  /**
+   * Clean and deduplicate all packs and stickers in storage
+   */
+  deduplicatePacksList(packs) {
+    if (!Array.isArray(packs)) return { cleanPacks: packs, modified: false };
+
+    let modified = false;
+    const cleanPacks = [];
+
+    // 1. Deduplicate packs (merge or remove duplicate packs)
+    for (const pack of packs) {
+      if (!pack || !pack.id) continue;
+
+      let packKey = pack.id;
+      if (pack.id === 'pack_AKB5VR' || pack.id === 'pack_tmkoc_chatpate' || pack.name.toLowerCase().includes('tmkoc')) {
+        packKey = 'pack_tmkoc_chatpate';
+      }
+
+      const existingPack = cleanPacks.find(p => p.id === packKey || (packKey === 'pack_tmkoc_chatpate' && (p.id === 'pack_tmkoc_chatpate' || p.name.toLowerCase().includes('tmkoc'))));
+
+      if (existingPack) {
+        modified = true;
+        // Merge stickers from duplicate pack into existingPack
+        if (Array.isArray(pack.stickers)) {
+          existingPack.stickers = existingPack.stickers || [];
+          for (const st of pack.stickers) {
+            existingPack.stickers.push(st);
+          }
+        }
+      } else {
+        if (packKey === 'pack_tmkoc_chatpate') {
+          pack.id = 'pack_tmkoc_chatpate';
+          pack.name = 'Chatpate TMKOC Memes';
+        }
+        cleanPacks.push(pack);
+      }
+    }
+
+    // 2. Deduplicate stickers inside every pack
+    for (const pack of cleanPacks) {
+      if (Array.isArray(pack.stickers)) {
+        const initialCount = pack.stickers.length;
+        const seenStickerFp = new Set();
+        const uniqueStickers = [];
+
+        for (const s of pack.stickers) {
+          if (!s) continue;
+          const fp = this.getStickerFingerprint(s);
+          if (!fp || seenStickerFp.has(fp)) {
+            modified = true;
+            continue; // Duplicate removed!
+          }
+          seenStickerFp.add(fp);
+          uniqueStickers.push(s);
+        }
+
+        if (uniqueStickers.length !== initialCount) {
+          pack.stickers = uniqueStickers;
+          modified = true;
+        }
+      }
+    }
+
+    return { cleanPacks, modified };
+  },
+
+  /**
+   * Returns a deduplicated flat list of all stickers across packs
+   */
+  getAllStickersDeduplicated(packs) {
+    if (!Array.isArray(packs)) return [];
+    const seen = new Set();
+    const result = [];
+    for (const p of packs) {
+      if (!Array.isArray(p.stickers)) continue;
+      for (const s of p.stickers) {
+        if (!s) continue;
+        const fp = this.getStickerFingerprint(s);
+        if (!fp || seen.has(fp)) continue;
+        seen.add(fp);
+        result.push({ ...s, packId: p.id, packName: p.name });
+      }
+    }
+    return result;
+  },
+
+  /**
+   * Get all sticker packs. Automatically initializes, deduplicates, and migrates to real photo packs.
    */
   async getPacks() {
     try {
@@ -120,6 +227,15 @@ const StickerStorage = {
           packs = defaults;
         }
         await chrome.storage.local.set({ [STORAGE_KEYS.PACKS]: packs });
+      }
+
+      // Automatically heal and deduplicate packs & duplicate stickers
+      const { cleanPacks, modified: dedupModified } = this.deduplicatePacksList(packs);
+      if (dedupModified) {
+        packs = cleanPacks;
+        await chrome.storage.local.set({ [STORAGE_KEYS.PACKS]: packs });
+      } else {
+        packs = cleanPacks;
       }
 
       // Sanitize packs: Remove any broken stickers with dead blob: URLs or invalid base64
@@ -458,7 +574,12 @@ const StickerStorage = {
 
     // Prepare Pack (find existing or create new)
     const existingPacks = await this.getPacks();
-    let targetPack = existingPacks.find(p => p.id === `pack_${code}` || p.name === packTitle || p.name.includes(`[${code}]`));
+    let targetPack = existingPacks.find(p =>
+      p.id === `pack_${code}` ||
+      p.name === packTitle ||
+      p.name.includes(`[${code}]`) ||
+      (code.toUpperCase() === 'AKB5VR' && (p.id === 'pack_tmkoc_chatpate' || p.name.toLowerCase().includes('tmkoc')))
+    );
     if (!targetPack) {
       targetPack = {
         id: `pack_${code}`,
@@ -508,10 +629,33 @@ const StickerStorage = {
   async deleteSticker(stickerId) {
     const packs = await this.getPacks();
     for (const pack of packs) {
-      pack.stickers = pack.stickers.filter(s => s.id !== stickerId);
+      if (Array.isArray(pack.stickers)) {
+        pack.stickers = pack.stickers.filter(s => s.id !== stickerId);
+      }
     }
     await this.savePacks(packs);
     await this.removeFavorite(stickerId);
+    await this.removeRecent(stickerId);
+    return packs;
+  },
+
+  /**
+   * Bulk delete multiple stickers by ID array
+   */
+  async deleteMultipleStickers(stickerIds) {
+    if (!Array.isArray(stickerIds) || stickerIds.length === 0) return await this.getPacks();
+    const idSet = new Set(stickerIds);
+    const packs = await this.getPacks();
+    for (const pack of packs) {
+      if (Array.isArray(pack.stickers)) {
+        pack.stickers = pack.stickers.filter(s => !idSet.has(s.id));
+      }
+    }
+    await this.savePacks(packs);
+    for (const id of stickerIds) {
+      await this.removeFavorite(id);
+      await this.removeRecent(id);
+    }
     return packs;
   },
 
