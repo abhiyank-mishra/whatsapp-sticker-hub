@@ -531,24 +531,77 @@
     const list = [];
     const seenUrls = new Set();
 
-    function normalizeStickerUrl(url) {
-      if (!url || typeof url !== 'string') return null;
-      url = url.trim();
-      if (url.startsWith('data:image/')) return url;
-      if (url.startsWith('https://') || url.startsWith('http://')) return url;
-      if (url.startsWith('UklGR')) return 'data:image/webp;base64,' + url;
-      if (url.startsWith('/9j/')) return 'data:image/jpeg;base64,' + url;
-      if (url.startsWith('iVBORw0KGgo')) return 'data:image/png;base64,' + url;
-      // Strictly reject blob: or non-image strings
-      return null;
+    function bufferToDataUrl(buf, mime = 'image/webp') {
+      try {
+        if (!buf) return null;
+        const bytes = buf instanceof Uint8Array ? buf : new Uint8Array(buf);
+        if (bytes.length < 10) return null;
+        let binary = '';
+        for (let i = 0; i < bytes.length; i++) {
+          binary += String.fromCharCode(bytes[i]);
+        }
+        return `data:${mime};base64,` + btoa(binary);
+      } catch {
+        return null;
+      }
     }
 
-    function addCandidate(rawUrl, name = 'WA Starred Sticker') {
-      const url = normalizeStickerUrl(rawUrl);
-      if (!url || url.length < 20) return;
+    function imgElementToDataUrl(img) {
+      try {
+        if (!img || !img.src) return null;
+        if (img.src.startsWith('data:image/')) return img.src;
+        const canvas = document.createElement('canvas');
+        canvas.width = img.naturalWidth || img.width || 128;
+        canvas.height = img.naturalHeight || img.height || 128;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0);
+        return canvas.toDataURL('image/webp', 0.9);
+      } catch {
+        return null;
+      }
+    }
+
+    async function convertBlobUrlToDataUrl(blobUrl) {
+      if (!blobUrl || typeof blobUrl !== 'string' || !blobUrl.startsWith('blob:')) return null;
+      try {
+        const res = await fetch(blobUrl);
+        const blob = await res.blob();
+        return new Promise((resolve) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result);
+          reader.onerror = () => resolve(null);
+          reader.readAsDataURL(blob);
+        });
+      } catch {
+        return null;
+      }
+    }
+
+    async function addCandidate(rawUrl, name = 'WA Starred Sticker') {
+      if (!rawUrl) return;
+      let url = rawUrl;
+
+      if (url instanceof Uint8Array || url instanceof ArrayBuffer) {
+        url = bufferToDataUrl(url);
+      } else if (typeof url === 'string' && url.startsWith('blob:')) {
+        url = await convertBlobUrlToDataUrl(url);
+      }
+
+      if (!url || typeof url !== 'string') return;
+      url = url.trim();
+
+      // Normalize bare base64
+      if (!url.startsWith('data:') && !url.startsWith('https://') && url.length > 50 && /^[A-Za-z0-9+/=]+$/.test(url.slice(0, 100))) {
+        url = 'data:image/webp;base64,' + url;
+      }
+
+      if (!url.startsWith('data:image/') && !url.startsWith('https://')) return;
+      if (url.length < 50) return;
+
       const key = url.slice(-80);
       if (seenUrls.has(key)) return;
       seenUrls.add(key);
+
       list.push({
         id: 'wa_fav_' + Math.random().toString(36).substring(2, 8),
         name: name,
@@ -578,26 +631,76 @@
             const url = item.preview || item.mediaData?.preview || item.mediaUrl || item.url || item.body || item.directPath;
             if (url) {
               const name = item.emojis ? item.emojis.join(' ') : 'WA Starred';
-              addCandidate(url, name);
+              await addCandidate(url, name);
             }
           }
         } catch (e) {}
       }
     } catch (e) {}
 
-    // 2. Scan IndexedDB for Starred / Saved Stickers
+    // 2. WhatsApp Web Message Models (Stickers sent/received in chats)
+    try {
+      const msgs = window.Store?.Msg?.getModelsArray ? window.Store.Msg.getModelsArray() : (window.Store?.Msg?.models || []);
+      for (const m of msgs) {
+        if (m.type === 'sticker') {
+          const u = m.mediaData?.preview || m.body || m.preview || m.mediaUrl;
+          if (u) await addCandidate(u, 'WA Sticker #' + (list.length + 1));
+        }
+      }
+    } catch (e) {}
+
+    // 3. Scan DOM in page context for active stickers
+    try {
+      const imgs = document.querySelectorAll('img');
+      for (const img of imgs) {
+        if ((img.naturalWidth >= 48 && img.naturalHeight >= 48) || img.closest('[data-id], div[role="row"], div[data-testid*="sticker"], div[role="application"]')) {
+          const isSticker = img.closest('[data-id]') ||
+                            img.closest('div[role="row"]') ||
+                            img.closest('div[data-testid*="sticker"]') ||
+                            img.closest('div[role="application"]') ||
+                            img.closest('div[class*="sticker"]');
+          if (isSticker && img.src) {
+            let dataUrl = null;
+            if (img.src.startsWith('data:')) {
+              dataUrl = img.src;
+            } else if (img.src.startsWith('blob:')) {
+              dataUrl = await convertBlobUrlToDataUrl(img.src) || imgElementToDataUrl(img);
+            } else if (img.src.startsWith('https://')) {
+              dataUrl = img.src;
+            }
+            if (dataUrl) {
+              await addCandidate(dataUrl, 'WA Sticker #' + (list.length + 1));
+            }
+          }
+        }
+      }
+    } catch (e) {}
+
+    // 4. Scan IndexedDB for Starred / Saved Stickers
     if (window.indexedDB) {
-      const candidateDbs = ['model-storage', 'wawc', 'wawc-db'];
+      let candidateDbs = ['model-storage', 'wawc', 'wawc-db', 'whatsapp'];
+      try {
+        if (typeof indexedDB.databases === 'function') {
+          const dbs = await indexedDB.databases();
+          if (Array.isArray(dbs) && dbs.length > 0) {
+            const foundNames = dbs.map(d => d.name).filter(Boolean);
+            if (foundNames.length > 0) {
+              candidateDbs = Array.from(new Set([...foundNames, ...candidateDbs]));
+            }
+          }
+        }
+      } catch (e) {}
+
       for (const dbName of candidateDbs) {
         try {
           await new Promise((resolve) => {
             const req = indexedDB.open(dbName);
             req.onerror = () => resolve();
-            req.onsuccess = (e) => {
+            req.onsuccess = async (e) => {
               const db = e.target.result;
               const storeNames = Array.from(db.objectStoreNames || []);
               const relevantStores = storeNames.filter(n =>
-                /starred|sticker|favorite/i.test(n)
+                /starred|sticker|favorite|recent|saved|custom|pack/i.test(n)
               );
 
               if (relevantStores.length === 0) {
@@ -612,12 +715,12 @@
                   const store = tx.objectStore(sName);
                   const getAllReq = store.getAll ? store.getAll(null, 50) : null;
                   if (getAllReq) {
-                    getAllReq.onsuccess = () => {
+                    getAllReq.onsuccess = async () => {
                       const records = getAllReq.result || [];
                       for (const it of records) {
-                        const url = it.preview || it.mediaData?.preview || it.mediaUrl || it.url || it.directPath || it.body;
+                        const url = it.preview || it.mediaData?.preview || it.mediaUrl || it.url || it.directPath || it.body || it.fullWidthHint;
                         if (url) {
-                          addCandidate(url, 'WA Starred #' + (list.length + 1));
+                          await addCandidate(url, 'WA Starred #' + (list.length + 1));
                         }
                       }
                       pending--;

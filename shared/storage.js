@@ -688,20 +688,72 @@ const StickerStorage = {
   },
 
   /**
-   * Recents tracking (keeps last 24 stickers)
+   * Recents tracking (keeps last 30 stickers with full sticker object persistence)
    */
   async getRecents() {
     const data = await chrome.storage.local.get(STORAGE_KEYS.RECENTS);
     return data[STORAGE_KEYS.RECENTS] || [];
   },
 
-  async recordRecent(stickerId) {
+  async recordRecent(stickerOrId) {
+    if (!stickerOrId) return [];
+    let itemToStore = stickerOrId;
+
+    if (typeof stickerOrId === 'string') {
+      const packs = await this.getPacks();
+      for (const p of packs) {
+        const found = p.stickers?.find(s => s.id === stickerOrId);
+        if (found) {
+          itemToStore = {
+            id: found.id,
+            name: found.name,
+            dataUrl: found.dataUrl,
+            isAnimated: Boolean(found.isAnimated),
+            tags: found.tags || ''
+          };
+          break;
+        }
+      }
+    } else if (typeof stickerOrId === 'object') {
+      itemToStore = {
+        id: stickerOrId.id || ('rec_' + Date.now()),
+        name: stickerOrId.name || 'Recent Sticker',
+        dataUrl: stickerOrId.dataUrl,
+        isAnimated: Boolean(stickerOrId.isAnimated),
+        tags: stickerOrId.tags || ''
+      };
+    }
+
+    // Do not save an unresolvable string ID into recents
+    if (typeof itemToStore === 'string') {
+      return await this.getRecents();
+    }
+
     const recents = await this.getRecents();
-    const filtered = recents.filter(id => id !== stickerId);
-    filtered.unshift(stickerId);
-    if (filtered.length > 24) filtered.pop();
+    const itemId = typeof itemToStore === 'object' ? itemToStore.id : itemToStore;
+    const itemDataUrl = typeof itemToStore === 'object' ? itemToStore.dataUrl : '';
+
+    const filtered = recents.filter(r => {
+      const rId = typeof r === 'string' ? r : r?.id;
+      const rUrl = typeof r === 'object' ? r?.dataUrl : '';
+      if (rId === itemId) return false;
+      if (itemDataUrl && rUrl && rUrl.slice(-60) === itemDataUrl.slice(-60)) return false;
+      return true;
+    });
+
+    filtered.unshift(itemToStore);
+    if (filtered.length > 30) filtered.pop();
     await chrome.storage.local.set({ [STORAGE_KEYS.RECENTS]: filtered });
     return filtered;
+  },
+
+  /**
+   * Save sanitized recents list directly
+   */
+  async saveRecents(recentsList) {
+    if (!Array.isArray(recentsList)) return [];
+    await chrome.storage.local.set({ [STORAGE_KEYS.RECENTS]: recentsList });
+    return recentsList;
   },
 
   /**
@@ -709,7 +761,10 @@ const StickerStorage = {
    */
   async removeRecent(stickerId) {
     const recents = await this.getRecents();
-    const filtered = recents.filter(id => id !== stickerId);
+    const filtered = recents.filter(r => {
+      const rId = typeof r === 'string' ? r : r?.id;
+      return rId !== stickerId;
+    });
     await chrome.storage.local.set({ [STORAGE_KEYS.RECENTS]: filtered });
     return filtered;
   },
@@ -1170,7 +1225,7 @@ const StickerStorage = {
     if (addedCount > 0) {
       await this.savePacks(packs);
     }
-    return { pack: waPack, addedCount };
+    return { pack: waPack, addedCount, totalCount: waPack.stickers.length };
   },
 
   /**

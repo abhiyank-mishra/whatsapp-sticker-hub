@@ -151,17 +151,30 @@
           updateApiBadge();
           break;
 
-        case 'WSH_WA_STICKERS_DATA':
-          if (data.stickers && Array.isArray(data.stickers) && data.stickers.length > 0) {
-            const syncRes = await StickerStorage.syncWaStickers(data.stickers);
+        case 'WSH_WA_STICKERS_DATA': {
+          const waStickers = Array.isArray(data.stickers) ? data.stickers : [];
+          if (waStickers.length > 0) {
+            const syncRes = await StickerStorage.syncWaStickers(waStickers);
+            await loadData();
+            renderTabs();
+            renderStickers();
             if (syncRes && syncRes.addedCount > 0) {
-              await loadData();
-              renderTabs();
-              renderStickers();
-              showToast(`Synced ${syncRes.addedCount} WhatsApp Starred stickers!`, 'success', 2400);
+              showToast(`Synced ${syncRes.addedCount} stickers from WhatsApp!`, 'success', 3000);
+            } else {
+              showToast(`WhatsApp stickers up to date (${syncRes?.totalCount || 0} total)`, 'info', 2500);
+            }
+          } else {
+            await loadData();
+            const waPack = allPacks.find(p => p.id === 'pack_wa_saved');
+            const totalCount = waPack ? waPack.stickers.length : 0;
+            if (totalCount > 0) {
+              showToast(`Already up to date (${totalCount} stickers in WA Starred)`, 'info', 2500);
+            } else {
+              showToast('No new stickers found. Open a chat with stickers or WA sticker panel and click Sync again!', 'warning', 4000);
             }
           }
           break;
+        }
 
         case 'WSH_STICKER_RESULT': {
           const item = pendingStickerPromises.get(data.id);
@@ -546,12 +559,126 @@
   }
 
   // ═══════════════════════════════════════════════════════════════════
+  // 9.5 RECENTS & WA SYNC HELPERS
+  // ═══════════════════════════════════════════════════════════════════
+
+  function resolveRecentsList() {
+    const stickerMap = new Map();
+    const fpMap = new Map();
+    for (const pack of allPacks) {
+      for (const s of (pack.stickers || [])) {
+        if (!s) continue;
+        stickerMap.set(s.id, s);
+        const fp = StickerStorage.getStickerFingerprint ? StickerStorage.getStickerFingerprint(s) : (s.dataUrl ? s.dataUrl.slice(-100) : null);
+        if (fp && !fpMap.has(fp)) fpMap.set(fp, s);
+      }
+    }
+
+    const resolved = [];
+    const seenFps = new Set();
+    const seenIds = new Set();
+
+    for (const item of recents) {
+      if (!item) continue;
+      let s = null;
+      if (typeof item === 'object' && item !== null && item.dataUrl) {
+        s = item;
+      } else if (typeof item === 'string') {
+        if (stickerMap.has(item)) {
+          s = stickerMap.get(item);
+        } else if (fpMap.has(item)) {
+          s = fpMap.get(item);
+        }
+      }
+
+      if (s && s.dataUrl) {
+        const fp = (StickerStorage.getStickerFingerprint ? StickerStorage.getStickerFingerprint(s) : null) || s.id;
+        if (seenFps.has(fp) || seenIds.has(s.id)) continue;
+        seenFps.add(fp);
+        seenIds.add(s.id);
+        resolved.push(s);
+      }
+    }
+    return resolved;
+  }
+
+  async function scanDomStickers() {
+    const list = [];
+    const seen = new Set();
+    const imgs = document.querySelectorAll(
+      '#main [data-testid="sticker"] img, ' +
+      '#main img[src*="blob:"], ' +
+      '#main div[class*="sticker"] img, ' +
+      'div[role="application"] img, ' +
+      'div[role="dialog"] img, ' +
+      'div[data-testid*="sticker"] img'
+    );
+
+    for (const img of imgs) {
+      if (!img.src || img.naturalWidth < 32 || img.naturalHeight < 32) continue;
+      if (img.closest('[data-testid="avatar"], [class*="avatar"]')) continue;
+
+      let dataUrl = '';
+      if (img.src.startsWith('data:image/')) {
+        dataUrl = img.src;
+      } else {
+        try {
+          const canvas = document.createElement('canvas');
+          canvas.width = img.naturalWidth || 128;
+          canvas.height = img.naturalHeight || 128;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0);
+          dataUrl = canvas.toDataURL('image/webp', 0.9);
+        } catch {}
+      }
+
+      if (dataUrl && dataUrl.startsWith('data:image/')) {
+        const fp = dataUrl.slice(-60);
+        if (!seen.has(fp)) {
+          seen.add(fp);
+          list.push({
+            id: 'wa_dom_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
+            name: 'WA Sticker #' + (list.length + 1),
+            dataUrl: dataUrl
+          });
+        }
+      }
+    }
+    return list;
+  }
+
+  async function triggerWaStickersSync() {
+    showToast('Scanning WhatsApp for Starred & Chat Stickers...', 'info', 2500);
+
+    // Strategy 1: Instant DOM extraction from currently visible chat & tray
+    const domStickers = await scanDomStickers();
+    if (domStickers.length > 0) {
+      const syncRes = await StickerStorage.syncWaStickers(domStickers);
+      if (syncRes && syncRes.addedCount > 0) {
+        await loadData();
+        renderTabs();
+        renderStickers();
+      }
+    }
+
+    // Strategy 2: Deep internal extraction via page context bridge
+    window.postMessage({ type: 'WSH_GET_WA_STICKERS' }, '*');
+  }
+
+  // ═══════════════════════════════════════════════════════════════════
   // 10. TABS RENDERING (Vector Icons, No Emojis)
   // ═══════════════════════════════════════════════════════════════════
 
   function renderTabs() {
     const tabsBar = document.getElementById('wsh-tabs-bar');
     if (!tabsBar) return;
+
+    // Validate and auto-heal recents so count matches display
+    const validRecents = resolveRecentsList();
+    if (validRecents.length !== recents.length) {
+      recents = validRecents;
+      StickerStorage.saveRecents(validRecents).catch(() => {});
+    }
 
     let html = '';
 
@@ -560,7 +687,7 @@
       <div class="wsh-tab-pill ${currentActiveTab === 'recents' ? 'wsh-active' : ''}" data-tab="recents">
         ${getSvg('clock', 13)}
         <span>Recents</span>
-        ${recents.length > 0 ? `<span class="wsh-tab-count">${recents.length}</span>` : ''}
+        ${validRecents.length > 0 ? `<span class="wsh-tab-count">${validRecents.length}</span>` : ''}
       </div>
     `;
 
@@ -657,13 +784,7 @@
 
     // Filter stickers based on active tab
     if (currentActiveTab === 'recents') {
-      const stickerMap = new Map();
-      for (const pack of allPacks) {
-        for (const s of pack.stickers) stickerMap.set(s.id, s);
-      }
-      for (const recId of recents) {
-        if (stickerMap.has(recId)) stickerList.push(stickerMap.get(recId));
-      }
+      stickerList = resolveRecentsList();
     } else if (currentActiveTab === 'all') {
       stickerList = StickerStorage.getAllStickersDeduplicated(allPacks);
     } else if (currentActiveTab === 'favorites') {
@@ -754,11 +875,10 @@
         emptyBtnAction = () => { currentActiveTab = 'all'; renderTabs(); renderStickers(); };
       } else if (currentActiveTab === 'pack_wa_saved') {
         emptyTitle = 'No WhatsApp Starred stickers';
-        emptySub = 'Star any sticker in WhatsApp Web and click "Sync Starred" above.';
+        emptySub = 'Star stickers in WhatsApp Web, or open a chat with stickers, then click "Sync Starred" below.';
         emptyBtnText = 'Sync Now';
         emptyBtnAction = () => {
-          showToast('Syncing WhatsApp Starred stickers...', 'info', 2000);
-          window.postMessage({ type: 'WSH_GET_WA_STICKERS' }, '*');
+          triggerWaStickersSync();
         };
       }
 
@@ -872,8 +992,7 @@
     if (syncBtn) {
       syncBtn.addEventListener('click', () => {
         syncBtn.classList.add('wsh-syncing');
-        showToast('Scanning WhatsApp for Starred Stickers...', 'info', 2000);
-        window.postMessage({ type: 'WSH_GET_WA_STICKERS' }, '*');
+        triggerWaStickersSync();
         setTimeout(() => syncBtn.classList.remove('wsh-syncing'), 1800);
       });
     }
@@ -1967,9 +2086,16 @@
 
       const result = await sendViaMainWorld(finalDataUrl);
 
-      if (sticker.id) {
-        await StickerStorage.recordRecent(sticker.id);
+      if (sticker) {
+        await StickerStorage.recordRecent({
+          id: sticker.id || ('stk_' + Date.now()),
+          name: sticker.name || 'Sticker',
+          dataUrl: finalDataUrl || sticker.dataUrl,
+          isAnimated: Boolean(sticker.isAnimated),
+          tags: sticker.tags || ''
+        });
         recents = await StickerStorage.getRecents();
+        renderTabs();
       }
 
       showToast('Sticker sent!', 'success', 2000);
@@ -2022,6 +2148,13 @@
       for (const s of pack.stickers) {
         if (s.id === id) return s;
       }
+    }
+    for (const r of recents) {
+      if (typeof r === 'object' && r !== null && r.id === id) return r;
+    }
+    if (currentSmartRecommendations && currentSmartRecommendations.stickers) {
+      const match = currentSmartRecommendations.stickers.find(s => s.id === id);
+      if (match) return match;
     }
     return null;
   }
